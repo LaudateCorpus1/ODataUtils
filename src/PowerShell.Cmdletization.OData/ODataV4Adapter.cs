@@ -25,6 +25,16 @@ namespace Microsoft.PowerShell.Cmdletization.OData
         protected const string AcceptHeader = "Accept";
 
         /// <summary>
+        /// OData-Version header name
+        /// </summary>
+        protected const string ODataVersionHeader = "OData-Version";
+
+        /// <summary>
+        /// Default ODataVersion value
+        /// </summary>
+        protected const string DefaultODataVersion = "4.0";
+
+        /// <summary>
         /// Internal headers field
         /// </summary>
         protected Hashtable headers = new Hashtable();
@@ -38,7 +48,9 @@ namespace Microsoft.PowerShell.Cmdletization.OData
         {
             get
             {
-                return AddAcceptHeaderIfMissing(this.headers);
+                Hashtable result = AddAcceptHeaderIfMissing(this.headers);
+                result = AddODataVersionHeaderIfMissing(result);
+                return result;
             }
             set
             {
@@ -283,15 +295,37 @@ namespace Microsoft.PowerShell.Cmdletization.OData
         /// <returns>Header list with added Accept</returns>
         protected Hashtable AddAcceptHeaderIfMissing(Hashtable headers)
         {
+            return AddHeaderIfMissing(headers, AcceptHeader, DefaultResponseFormatMimeType);
+        }
+
+        /// <summary>
+        /// Adds OData-Version if it is missing from the list of headers
+        /// </summary>
+        /// <param name="headers">List of headers to search</param>
+        /// <returns>Header list with added OData-Version</returns>
+        protected Hashtable AddODataVersionHeaderIfMissing(Hashtable headers)
+        {
+            return AddHeaderIfMissing(headers, ODataVersionHeader, DefaultODataVersion);
+        }
+
+        /// <summary>
+        /// Adds a specific header if it is missing from the list of headers
+        /// </summary>
+        /// <param name="headers">List of headers to search</param>
+        /// <param name="headerName">Name of header to add</param>
+        /// <param name="headerValue">Value of header to add</param>
+        /// <returns>Updated header list</returns>
+        protected Hashtable AddHeaderIfMissing(Hashtable headers, string headerName, string headerValue)
+        {
             Hashtable result = new Hashtable();
             if (headers != null)
             {
                 // need to do case-insensitive search since these items may be set by the user
                 foreach (string header in headers.Keys)
                 {
-                    if (header.Equals(AcceptHeader, StringComparison.OrdinalIgnoreCase))
+                    if (header.Equals(headerName, StringComparison.OrdinalIgnoreCase))
                     {
-                        return headers; // Accept already in the headers - just return current headers
+                        return headers; // specified header already exists - just return current headers
                     }
                 }
                 if (headers.Count > 0) // in majority of cases users won't be using custom headers, so this small optimization will save on cloning empty HT
@@ -299,8 +333,8 @@ namespace Microsoft.PowerShell.Cmdletization.OData
                     result = (Hashtable)headers.Clone();
                 }
             }
-            // if we are here - we need to add Accept header
-            result.Add(AcceptHeader, DefaultResponseFormatMimeType);
+            // if we are here - we need to add the specified header
+            result.Add(headerName, headerValue);
             return result;
         }
     }
