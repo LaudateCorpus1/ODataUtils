@@ -1,6 +1,10 @@
 # Microsoft.PowerShell.ODataUtils Module
 [Microsoft.PowerShell.ODataUtils module](https://technet.microsoft.com/en-us/library/dn818507.aspx) generates CDXML modules that contain cmdlets to manage [OData](http://www.odata.org/) and [Redfish](https://www.dmtf.org/standards/redfish) endpoints.
 
+|Master   |
+|:------:|
+|[![Build status](https://ci.appveyor.com/api/projects/status/7keb7k1fdlqqhfq2/branch/master?svg=true)](https://ci.appveyor.com/project/PowerShell/odatautils/branch/master)|
+
 # Building
 1. [Ensure that .NET Command Line Interface tools are installed.](https://github.com/PowerShell/PowerShell/blob/master/docs/building/windows-core.md#net-cli)
 2. Run `build.ps1`
