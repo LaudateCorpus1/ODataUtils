@@ -21,13 +21,17 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
 
             $metadataXmlPath = Join-Path $script:TestSourceRoot "metadata.xml"
             $metadataXml = Get-Content $metadataXmlPath
+            [xml]$xmlDoc = $metadataXml
+            $ns = new-object Xml.XmlNamespaceManager $xmlDoc.NameTable
+            $ns.AddNamespace("m", $xmlDoc.Edmx.DataServices.m)
+            $ns.AddNamespace("ns", $xmlDoc.Edmx.DataServices.Schema.xmlns)
         }
     
         function Get-MockCmdlet {[CmdletBinding()] param()
             return $PSCmdlet
         }
         
-        It "Checks type coversion to CLR types" {
+        It "Checks type conversion to CLR types" {
             
             $ODataTypes = @{
                 "Edm.Binary"="Byte[]";
@@ -51,7 +55,7 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             }
         }
 
-        It "Checks collection coversion to CLR types" {
+        It "Checks collection conversion to CLR types" {
             
             Convert-ODataTypeToCLRType 'Collection(Edm.Int16)' | Should Be 'Int16[]'
             Convert-ODataTypeToCLRType 'Collection(Collection(Edm.Byte))' | Should Be 'Byte[][]'
@@ -66,20 +70,20 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             $result.DefaultEntityContainerName | Should Be "DemoService"
 
             
-            $result.EntitySets.Length | Should Be 7
-            @($result.EntitySets | ?{$_.Name -eq 'Products'}).Count | Should Be 1
+            $result.EntitySets.Length | Should Be @($xmlDoc.selectNodes('//ns:EntitySet', $ns)).Count
+            @($result.EntitySets | ?{$_.Name -eq 'Products'}).Count | Should Be @($xmlDoc.selectNodes('//ns:EntitySet[@Name="Products"]', $ns)).Count
             
-            $result.EntityTypes.Length | Should Be 10
-            @($result.EntityTypes | ?{$_.Name -eq 'Customer'}).Count | Should Be 1
+            $result.EntityTypes.Length | Should Be @($xmlDoc.selectNodes('//ns:EntityType', $ns)).Count
+            @($result.EntityTypes | ?{$_.Name -eq 'Customer'}).Count | Should Be @($xmlDoc.selectNodes('//ns:EntityType[@Name="Customer"]', $ns)).Count
 
-            $result.ComplexTypes.Length | Should Be 1
-            @($result.ComplexTypes | ?{$_.Name -eq 'Address'}).Count | Should Be 1
+            $result.ComplexTypes.Length | Should Be @($xmlDoc.selectNodes('//ns:ComplexType', $ns)).Count
+            @($result.ComplexTypes | ?{$_.Name -eq 'Address'}).Count | Should Be @($xmlDoc.selectNodes('//ns:ComplexType[@Name="Address"]', $ns)).Count
 
-            $result.Associations.Length | Should Be 5
-            @($result.Associations | ?{$_.Name -eq 'Product_Categories_Category_Products'}).Count | Should Be 1
+            $result.Associations.Length | Should Be @($xmlDoc.selectNodes('//ns:Association', $ns)).Count
+            @($result.Associations | ?{$_.Name -eq 'Product_Categories_Category_Products'}).Count | Should Be @($xmlDoc.selectNodes('//ns:Association[@Name="Product_Categories_Category_Products"]', $ns)).Count
 
-            $result.Actions.Length | Should Be 2
-            @($result.Actions | ?{$_.Verb -eq 'IncreaseSalaries'}).Count | Should Be 1
+            $result.Actions.Length | Should Be @($xmlDoc.selectNodes('//ns:FunctionImport[not(@m:HttpMethod)]', $ns)).Count
+            @($result.Actions | ?{$_.Verb -eq 'IncreaseSalaries'}).Count | Should Be @($xmlDoc.selectNodes('//ns:FunctionImport[@Name="IncreaseSalaries"]', $ns)).Count
         }
 
         It "Verifies that generated module has correct contents" {
@@ -91,7 +95,7 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             [string]$generatedModuleName = $entitySet.Type.Name
 
             $moduleDir = join-path $TestDrive "v3Module"
-            mkdir $moduleDir -ErrorAction SilentlyContinue
+            New-Item $moduleDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
 
             try
             {
@@ -106,16 +110,19 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             $modulepath += ".cdxml"
             [xml]$doc = Get-Content $modulepath -Raw
 
+            $ns = new-object Xml.XmlNamespaceManager $doc.NameTable
+            $ns.AddNamespace("ns", $doc.PowerShellMetadata.xmlns)
+
             $queryableProperties = $doc.GetElementsByTagName("QueryableProperties")
-            $queryableProperties.Count | Should Be 1
-            $queryableProperties[0].ChildNodes.Count | Should Be 10
-            $doc.GetElementsByTagName("QueryableAssociations").Count | Should Be 0
-            $doc.GetElementsByTagName("GetCmdlet").Count | Should Be 1
+            $queryableProperties.Count | Should Be @($doc.SelectNodes('//ns:QueryableProperties', $ns)).Count
+            $queryableProperties[0].ChildNodes.Count | Should Be @($doc.SelectNodes('//ns:QueryableProperties/*', $ns)).Count
+            $doc.GetElementsByTagName("QueryableAssociations").Count | Should Be @($doc.SelectNodes('//ns:QueryableAssociations', $ns)).Count
+            $doc.GetElementsByTagName("GetCmdlet").Count | Should Be @($doc.SelectNodes('//ns:GetCmdlet', $ns)).Count
             $staticCmdlets = $doc.GetElementsByTagName("StaticCmdlets")
-            $staticCmdlets.Count | Should Be 1
-            $staticCmdlets[0].ChildNodes.Count | Should Be 4
-            $doc.GetElementsByTagName("Cmdlet").Count | Should Be 4
-            $doc.GetElementsByTagName("Method").Count | Should Be 10
+            $staticCmdlets.Count | Should Be @($doc.SelectNodes('//ns:StaticCmdlets', $ns)).Count
+            $staticCmdlets[0].ChildNodes.Count | Should Be @($doc.SelectNodes('//ns:StaticCmdlets/*', $ns)).Count
+            $doc.GetElementsByTagName("Cmdlet").Count | Should Be @($doc.SelectNodes('//ns:Cmdlet', $ns)).Count
+            $doc.GetElementsByTagName("Method").Count | Should Be @($doc.SelectNodes('//ns:Method', $ns)).Count
         }
 
         It "Verifies that generated module manifest has correct amount of nested modules" {
@@ -123,7 +130,7 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             $tmpcmdlet = Get-MockCmdlet
             $metadata = ParseMetadata -metadataXml $metadataXml -metaDataUri 'https://SomeUri.org' -cmdletAdapter 'ODataAdapter' -callerPSCmdlet $tmpcmdlet
             $moduleDir = join-path $TestDrive "v3Module"
-            mkdir $moduleDir -ErrorAction SilentlyContinue
+            New-Item $moduleDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
             $modulePath = Join-Path $moduleDir 'GeneratedModule.psd1'
 
             GenerateModuleManifest $metadata $modulePath @('GeneratedServiceActions.cdxml') $null 'Sample ProgressBar message'
@@ -133,13 +140,20 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             $rx = new-object System.Text.RegularExpressions.Regex('\bNestedModules = @\([^\)]*\)', ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Singleline))
             $nestedModules = $rx.Match($fileContents).Value;
 
+            $ns = new-object Xml.XmlNamespaceManager $xmlDoc.NameTable
+            $ns.AddNamespace("m", $xmlDoc.Edmx.DataServices.m)
+            $ns.AddNamespace("ns", $xmlDoc.Edmx.DataServices.Schema.xmlns)
+
+            # expected NestedModules = EntitySets + Actions cdxml
+            [int]$expectedActionModuleCount = @($xmlDoc.selectNodes('//ns:FunctionImport[not(@m:HttpMethod)]', $ns)).Count -gt 0
+            $expectedNestedModulesCount = @($xmlDoc.selectNodes('//ns:EntityContainer/ns:EntitySet', $ns)).Count + $expectedActionModuleCount
+
             $rx2 = new-object System.Text.RegularExpressions.Regex('([\w]*\.cdxml)', ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Singleline))
-            $rx2.Matches($nestedModules).Count | Should Be 8
+            $rx2.Matches($nestedModules).Count | Should Be $expectedNestedModulesCount
         }
     }
 
-     Context "OData v4 validation test cases" {
-            
+    Context "OData v4 validation test cases" {
     
         BeforeAll {
             $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataUtilsHelper.ps1'
@@ -149,31 +163,38 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
 
             $metadatav4XmlPath = Join-Path $script:TestSourceRoot "metadataV4.xml"
             $metadatav4Xml = Get-Content $metadatav4XmlPath
+            [xml]$xmlDoc = $metadatav4Xml
+            $ns = new-object Xml.XmlNamespaceManager $xmlDoc.NameTable
+            $ns.AddNamespace("edmx", $xmlDoc.Edmx.edmx)
+            $ns.AddNamespace("ns", $xmlDoc.Edmx.DataServices.Schema.xmlns)
         }
 
         It "Checks parsing metadata" {
             
             $MetadataSet = New-Object System.Collections.ArrayList
+            $wp = $WarningPreference
+            $WarningPreference = "SilentlyContinue"
             $result = ParseMetadata -MetadataXML $metadatav4Xml -MetadataSet $MetadataSet
+            $WarningPreference = $wp
             $result.Namespace | Should Be "Microsoft.OData.SampleService.Models.TripPin"
             
-            $result.EntitySets.Length | Should Be 4
-            @($result.EntitySets | ?{$_.Name -eq 'People'}).Count | Should Be 1
+            $result.EntitySets.Length | Should Be @($xmlDoc.selectNodes('//ns:EntitySet', $ns)).Count
+            @($result.EntitySets | ?{$_.Name -eq 'People'}).Count | Should Be @($xmlDoc.selectNodes('//ns:EntitySet[@Name="People"]', $ns)).Count
             
-            $result.EntityTypes.Length | Should Be 9
-            @($result.EntityTypes | ?{$_.Name -eq 'Person'}).Count | Should Be 1
+            $result.EntityTypes.Length | Should Be @($xmlDoc.selectNodes('//ns:EntityType', $ns)).Count
+            @($result.EntityTypes | ?{$_.Name -eq 'Person'}).Count | Should Be @($xmlDoc.selectNodes('//ns:EntityType[@Name="Person"]', $ns)).Count
 
-            $result.ComplexTypes.Length | Should Be 4
-            @($result.ComplexTypes | ?{$_.Name -eq 'Location'}).Count | Should Be 1
+            $result.ComplexTypes.Length | Should Be @($xmlDoc.selectNodes('//ns:ComplexType', $ns)).Count
+            @($result.ComplexTypes | ?{$_.Name -eq 'Location'}).Count | Should Be @($xmlDoc.selectNodes('//ns:ComplexType[@Name="Location"]', $ns)).Count
 
-            $result.EnumTypes.Length | Should Be 1
-            @($result.EnumTypes | ?{$_.Name -eq 'PersonGender'}).Count | Should Be 1
+            $result.EnumTypes.Length | Should Be @($xmlDoc.selectNodes('//ns:EnumType', $ns)).Count
+            @($result.EnumTypes | ?{$_.Name -eq 'PersonGender'}).Count | Should Be @($xmlDoc.selectNodes('//ns:EnumType[@Name="PersonGender"]', $ns)).Count
 
-            $result.SingletonTypes.Length | Should Be 1
-            @($result.SingletonTypes | ?{$_.Name -eq 'Me'}).Count | Should Be 1
+            $result.SingletonTypes.Length | Should Be @($xmlDoc.selectNodes('//ns:Singleton', $ns)).Count
+            @($result.SingletonTypes | ?{$_.Name -eq 'Me'}).Count | Should Be @($xmlDoc.selectNodes('//ns:Singleton[@Name="Me"]', $ns)).Count
 
-            $result.Actions.Length | Should Be 2
-            $result.Functions.Length | Should Be 4
+            $result.Actions.Length | Should Be @($xmlDoc.selectNodes('//ns:Action', $ns)).Count
+            $result.Functions.Length | Should Be @($xmlDoc.selectNodes('//ns:Function', $ns)).Count
         }
 
         It "Verify normalization" {
@@ -227,23 +248,25 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             $entitySet = $metadata.EntitySets[0]
             [string]$generatedModuleName = $entitySet.Type.Name
             $moduleDir = join-path $TestDrive "v4Module"
-            mkdir $moduleDir
+            New-Item $moduleDir -ItemType Directory | Out-Null
 
             SaveCDXML $entitySet $metadata $GlobalMetadata 'http://fakeuri/Service.svc' $moduleDir 'Post' 'Patch' 'ODataV4Adapter' -UriResourcePathKeyFormat 'EmbeddedKey' -normalizedNamespaces $normalizedNamespaces
 
             $modulepath = join-path $moduleDir $generatedModuleName
             $modulepath += ".cdxml"
             [xml]$doc = Get-Content $modulepath -Raw
+            $ns = new-object Xml.XmlNamespaceManager $doc.NameTable
+            $ns.AddNamespace("ns", $doc.PowerShellMetadata.xmlns)
 
             $queryableProperties = $doc.GetElementsByTagName("QueryableProperties")
-            $queryableProperties.Count | Should Be 1
-            $queryableProperties[0].ChildNodes.Count | Should Be 7
-            $doc.GetElementsByTagName("GetCmdlet").Count | Should Be 1
+            $queryableProperties.Count | Should Be @($doc.SelectNodes('//ns:QueryableProperties', $ns)).Count
+            $queryableProperties[0].ChildNodes.Count | Should Be @($doc.SelectNodes('//ns:QueryableProperties/*', $ns)).Count
+            $doc.GetElementsByTagName("GetCmdlet").Count | Should Be @($doc.SelectNodes('//ns:GetCmdlet', $ns)).Count
             $staticCmdlets = $doc.GetElementsByTagName("StaticCmdlets")
-            $staticCmdlets.Count | Should Be 1
-            $staticCmdlets[0].ChildNodes.Count | Should Be 3
-            $doc.GetElementsByTagName("Cmdlet").Count | Should Be 3
-            $doc.GetElementsByTagName("Method").Count | Should Be 3
+            $staticCmdlets.Count | Should Be @($doc.SelectNodes('//ns:StaticCmdlets', $ns)).Count
+            $staticCmdlets[0].ChildNodes.Count | Should Be @($doc.SelectNodes('//ns:StaticCmdlets/*', $ns)).Count
+            $doc.GetElementsByTagName("Cmdlet").Count | Should Be @($doc.SelectNodes('//ns:Cmdlet', $ns)).Count
+            $doc.GetElementsByTagName("Method").Count | Should Be @($doc.SelectNodes('//ns:Method', $ns)).Count
         }
         
         It "Verifies that generated module manifest has correct amount of nested modules" {
@@ -254,18 +277,28 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
 
 
             $moduleDir = join-path $TestDrive "v4Module"
-            mkdir $moduleDir -ErrorAction SilentlyContinue
+            New-Item $moduleDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
             $modulePath = Join-Path $moduleDir 'GeneratedModule.psd1'
 
             GenerateModuleManifest $GlobalMetadata $modulePath @('GeneratedServiceActions.cdxml') $null 'Sample ProgressBar message'
 
             $fileContents = Get-Content $modulepath -Raw
 
+            [xml]$xmlDoc = $metadatav4Xml
+            $ns = new-object Xml.XmlNamespaceManager $xmlDoc.NameTable
+            $ns.AddNamespace("edmx", $xmlDoc.Edmx.edmx)
+            $ns.AddNamespace("ns", $xmlDoc.Edmx.DataServices.Schema.xmlns)
+
+            # expected NestedModules = EntitySets + Singletons + Actions cdxml
+            [int]$expectedActionModuleCount = @($xmlDoc.selectNodes('//ns:FunctionImport', $ns)).Count -gt 0
+            [int]$expectedSingletonModuleCount = @($xmlDoc.selectNodes('//ns:Singleton', $ns)).Count
+            $expectedNestedModulesCount = @($xmlDoc.selectNodes('//ns:EntityContainer/ns:EntitySet', $ns)).Count + $expectedActionModuleCount + $expectedSingletonModuleCount
+
             $rx = new-object System.Text.RegularExpressions.Regex('\bNestedModules = @\([^\)]*\)', ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Singleline))
             $nestedModules = $rx.Match($fileContents).Value;
 
             $rx2 = new-object System.Text.RegularExpressions.Regex('([\w]*\.cdxml)', ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Singleline))
-            $rx2.Matches($nestedModules).Count | Should Be 6
+            $rx2.Matches($nestedModules).Count | Should Be $expectedNestedModulesCount
         }
     }
 
@@ -281,9 +314,35 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             $metaFilePaths = Get-ChildItem $metaFilesRoot -Filter '*.xml'
 
             $metaXmls= @()
+
+            $SchemaCount = 0;
+            $EntityTypesCount = 0;
+            $ComplexTypesCount = 0;
+            $EnumTypesCount = 0;
+            $SingletonTypesCount = 0;
+            $ActionsCount = 0;
+            $NavigationPropertiesCount = 0;
+            
             foreach($metaFile in $metaFilePaths)
             {
-                $metaXmls += Get-Content $metaFile.FullName -Raw
+                $metaXml = Get-Content $metaFile.FullName -Raw
+                $metaXmls += $metaXml
+
+                [xml]$xmlDoc = $metaXml
+                
+                foreach($s in $xmlDoc.Edmx.DataServices.Schema)
+                {
+                    $ns = new-object Xml.XmlNamespaceManager $xmlDoc.NameTable
+                    $ns.AddNamespace("ns", "http://docs.oasis-open.org/odata/ns/edm")    
+
+                    $SchemaCount += 1
+                    $EntityTypesCount += @($s.selectNodes('ns:EntityType', $ns)).Count
+                    $ComplexTypesCount += @($s.selectNodes('ns:ComplexType', $ns)).Count
+                    $EnumTypesCount += @($s.selectNodes('ns:EnumType', $ns)).Count
+                    $SingletonTypesCount += @($s.selectNodes('ns:EntityContainer/ns:Singleton', $ns)).Count
+                    $ActionsCount += @($s.selectNodes('ns:Action', $ns)).Count
+                    $NavigationPropertiesCount += @($s.selectNodes('ns:EntityType/ns:NavigationProperty', $ns)).Count
+                }
             }
         }
 
@@ -297,14 +356,14 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             {
                 ParseMetadata -MetadataXML $metaXml -ODataVersion '4.0' -MetadataUri 'http://fakeuri/redfish/v1/$metadata' -Uri 'http://fakeuri/redfish/v1'
             }
-
-            @($GlobalMetadata | ?{if ($_) {$_}}).Count | Should Be 159
-            @($GlobalMetadata.EntityTypes | ?{if ($_) {$_}}).Count | Should Be 158
-            @($GlobalMetadata.ComplexTypes | ?{if ($_) {$_}}).Count | Should Be 94
-            @($GlobalMetadata.EnumTypes | ?{if ($_) {$_}}).Count | Should Be 74
-            @($GlobalMetadata.SingletonTypes | ?{if ($_) {$_}}).Count | Should Be 11
-            @($GlobalMetadata.Actions | ?{if ($_) {$_}}).Count | Should Be 19
-            @($GlobalMetadata.EntityTypes.NavigationProperties | ?{if ($_) {$_}}).Count | Should Be 76
+            
+            @($GlobalMetadata | ?{if ($_) {$_}}).Count | Should Be $SchemaCount
+            @($GlobalMetadata.EntityTypes | ?{if ($_) {$_}}).Count | Should Be $EntityTypesCount
+            @($GlobalMetadata.ComplexTypes | ?{if ($_) {$_}}).Count | Should Be $ComplexTypesCount
+            @($GlobalMetadata.EnumTypes | ?{if ($_) {$_}}).Count | Should Be $EnumTypesCount
+            @($GlobalMetadata.SingletonTypes | ?{if ($_) {$_}}).Count | Should Be $SingletonTypesCount
+            @($GlobalMetadata.Actions | ?{if ($_) {$_}}).Count | Should Be $ActionsCount
+            @($GlobalMetadata.EntityTypes.NavigationProperties | ?{if ($_) {$_}}).Count | Should Be $NavigationPropertiesCount
         }
 
         It "Verifies that generated module has correct contents" {
@@ -317,7 +376,7 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             }
 
             $moduleDir = join-path $TestDrive "RedfishModule"
-            mkdir $moduleDir
+            New-Item $moduleDir -ItemType Directory | Out-Null
 
             $ODataEndpointProxyParameters = [ODataUtils.ODataEndpointProxyParameters] @{
                 "MetadataUri" = 'http://fakeuri/redfish/v1/$metadata';
@@ -329,7 +388,7 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             GenerateClientSideProxyModule $GlobalMetadata $ODataEndpointProxyParameters $moduleDir 'Post' 'Patch' 'ODataV4Adapter' -progressBarStatus 'generating module'
 
             # check generated files in module directory
-            @(dir $moduleDir -Filter '*.cdxml').Count | Should Be 63
+            $nestedModulesCount = @(dir $moduleDir -Filter '*.cdxml').Count
             $psd1 = dir $moduleDir -Filter '*.psd1'
             @($psd1).Count | Should Be 1
 
@@ -338,7 +397,7 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             $rx = new-object System.Text.RegularExpressions.Regex('\bNestedModules = @\([^\)]*\)', ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Singleline))
             $nestedModules = $rx.Match($fileContents).Value;
             $rx2 = new-object System.Text.RegularExpressions.Regex('([\w]*\.cdxml)', ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Singleline))
-            $rx2.Matches($nestedModules).Count | Should Be 63
+            $rx2.Matches($nestedModules).Count | Should Be $nestedModulesCount
 
             # basic check for ServiceRoot cdxml
             @(dir $moduleDir -Filter 'ServiceRoot.cdxml').Count | Should Be 1
@@ -346,13 +405,7 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             # basic check for other sample cdxml
             $modulepath = Join-Path $moduleDir 'ComputerSystem.cdxml'
             [xml]$doc = Get-Content $modulepath -Raw
-            
             $doc.GetElementsByTagName("GetCmdlet").Count | Should Be 1
-            $staticCmdlets = $doc.GetElementsByTagName("StaticCmdlets")
-            $staticCmdlets.Count | Should Be 1
-            $staticCmdlets[0].ChildNodes.Count | Should Be 4
-            $doc.GetElementsByTagName("Cmdlet").Count | Should Be 4
-            $doc.GetElementsByTagName("Method").Count | Should Be 9
         }
     }
 }
