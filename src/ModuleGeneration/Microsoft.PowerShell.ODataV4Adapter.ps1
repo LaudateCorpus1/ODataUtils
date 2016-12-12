@@ -1,7 +1,7 @@
 Import-LocalizedData LocalizedData -FileName Microsoft.PowerShell.ODataUtilsStrings.psd1
 
 # Add .NET classes used by the module
-Add-Type -TypeDefinition $global:BaseClassDefinitions
+Add-Type -TypeDefinition $BaseClassDefinitions
 
 #########################################################
 # Generates PowerShell module containing client side 
