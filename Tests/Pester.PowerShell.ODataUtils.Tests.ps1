@@ -9,16 +9,23 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
     BeforeAll {
         $ModuleBase = Split-Path $script:TestSourceRoot
         $ModuleBase = Join-Path (Join-Path $ModuleBase 'src') 'ModuleGeneration'
+        $ODataUtilsHelperPath = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataUtilsHelper.ps1'
+    }
+
+    function SaveAndSetErrorActionPreference
+    {
+        $eap = $ErrorActionPreference
+        Set-Variable 'ErrorActionPreference' -Scope 1 -Value 'SilentlyContinue' # ignore "New-Variable : A variable with name 'BaseClassDefinitions' already exists."
+        return $eap
     }
 
     Context "OData validation test cases" {
 
         BeforeAll {
-            $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataUtilsHelper.ps1'
-            $eap = $ErrorActionPreference
-            $ErrorActionPreference = 'SilentlyContinue' # ignore "New-Variable : A variable with name 'BaseClassDefinitions' already exists."
-            . $scriptToDotSource
+            $eap = SaveAndSetErrorActionPreference
+            . $ODataUtilsHelperPath
             $ErrorActionPreference = $eap
+
             $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataAdapter.ps1'
             . $scriptToDotSource
 
@@ -169,11 +176,10 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
     Context "OData v4 validation test cases" {
     
         BeforeAll {
-            $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataUtilsHelper.ps1'
-            $eap = $ErrorActionPreference
-            $ErrorActionPreference = 'SilentlyContinue' # ignore "New-Variable : A variable with name 'BaseClassDefinitions' already exists."
-            . $scriptToDotSource
+            $eap = SaveAndSetErrorActionPreference
+            . $ODataUtilsHelperPath
             $ErrorActionPreference = $eap
+
             $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataV4Adapter.ps1'
             . $scriptToDotSource
 
@@ -331,11 +337,10 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
     Context "Redfish validation test cases" {
     
         BeforeAll {
-            $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataUtilsHelper.ps1'
-            $eap = $ErrorActionPreference
-            $ErrorActionPreference = 'SilentlyContinue' # ignore "New-Variable : A variable with name 'BaseClassDefinitions' already exists."
-            . $scriptToDotSource
+            $eap = SaveAndSetErrorActionPreference
+            . $ODataUtilsHelperPath
             $ErrorActionPreference = $eap
+
             $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.RedfishAdapter.ps1'
             . $scriptToDotSource
 
