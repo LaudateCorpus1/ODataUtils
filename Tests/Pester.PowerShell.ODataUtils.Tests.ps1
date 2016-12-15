@@ -10,7 +10,7 @@ $ModuleBase = Join-Path (Join-Path $ModuleBase 'src') 'ModuleGeneration'
 $ODataUtilsHelperPath = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataUtilsHelper.ps1'
 . $ODataUtilsHelperPath
 
-Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
+Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags CI {
 
     Context "OData validation test cases" {
 
