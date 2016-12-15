@@ -4,18 +4,17 @@
  # used for validating Microsoft.PowerShell.ODataUtils module.
  ############################################################################################>
 $script:TestSourceRoot = $PSScriptRoot
-Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
+$ModuleBase = Split-Path $script:TestSourceRoot
+$ModuleBase = Join-Path (Join-Path $ModuleBase 'src') 'ModuleGeneration'
 
-    BeforeAll {
-        $ModuleBase = Split-Path $script:TestSourceRoot
-        $ModuleBase = Join-Path (Join-Path $ModuleBase 'src') 'ModuleGeneration'
-    }
+$ODataUtilsHelperPath = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataUtilsHelper.ps1'
+. $ODataUtilsHelperPath
+
+Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags CI {
 
     Context "OData validation test cases" {
 
         BeforeAll {
-            $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataUtilsHelper.ps1'
-            . $scriptToDotSource
             $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataAdapter.ps1'
             . $scriptToDotSource
 
@@ -151,13 +150,21 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             $rx2 = new-object System.Text.RegularExpressions.Regex('([\w]*\.cdxml)', ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Singleline))
             $rx2.Matches($nestedModules).Count | Should Be $expectedNestedModulesCount
         }
+
+        It "Verifies that BaseClassDefinitions can't be overwritten" {
+            
+            # at this point ODataUtilsHelper.ps1 was dot sourced and 'BaseClassDefinitions' variable is initialized with correct value
+            # now try to overwrite variable
+            Set-Variable -Name BaseClassDefinitions -Scope 'Global' -Value 'Uncompilable C# code' -ErrorAction SilentlyContinue
+            
+            # if above overwrite worked then Add-Type in the adapter will generate errors and fail the test
+            . $scriptToDotSource
+        }
     }
 
     Context "OData v4 validation test cases" {
     
         BeforeAll {
-            $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataUtilsHelper.ps1'
-            . $scriptToDotSource
             $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataV4Adapter.ps1'
             . $scriptToDotSource
 
@@ -300,13 +307,21 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             $rx2 = new-object System.Text.RegularExpressions.Regex('([\w]*\.cdxml)', ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Singleline))
             $rx2.Matches($nestedModules).Count | Should Be $expectedNestedModulesCount
         }
+
+        It "Verifies that BaseClassDefinitions can't be overwritten" {
+            
+            # at this point ODataUtilsHelper.ps1 was dot sourced and 'BaseClassDefinitions' variable is initialized with correct value
+            # now try to overwrite variable
+            Set-Variable -Name BaseClassDefinitions -Scope 'Global' -Value 'Uncompilable C# code' -ErrorAction SilentlyContinue
+            
+            # if above overwrite worked then Add-Type in the adapter will generate errors and fail the test
+            . $scriptToDotSource
+        }
     }
 
     Context "Redfish validation test cases" {
     
         BeforeAll {
-            $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.ODataUtilsHelper.ps1'
-            . $scriptToDotSource
             $scriptToDotSource = Join-Path $ModuleBase 'Microsoft.PowerShell.RedfishAdapter.ps1'
             . $scriptToDotSource
 
@@ -406,6 +421,16 @@ Describe "Test suite for Microsoft.PowerShell.ODataUtils module" -Tags "BVT" {
             $modulepath = Join-Path $moduleDir 'ComputerSystem.cdxml'
             [xml]$doc = Get-Content $modulepath -Raw
             $doc.GetElementsByTagName("GetCmdlet").Count | Should Be 1
+        }
+
+        It "Verifies that BaseClassDefinitions can't be overwritten" {
+            
+            # at this point ODataUtilsHelper.ps1 was dot sourced and 'BaseClassDefinitions' variable is initialized with correct value
+            # now try to overwrite variable
+            Set-Variable -Name BaseClassDefinitions -Scope 'Global' -Value 'Uncompilable C# code' -ErrorAction SilentlyContinue
+            
+            # if above overwrite worked then Add-Type in the adapter will generate errors and fail the test
+            . $scriptToDotSource
         }
     }
 }
