@@ -3,11 +3,11 @@ Import-LocalizedData LocalizedData -FileName Microsoft.PowerShell.ODataUtilsStri
 # Add .NET classes used by the module
 if ($PSEdition -eq "Core")
 {
-   Add-Type -TypeDefinition $BaseClassDefinitions -ReferencedAssemblies @([System.Collections.ArrayList].Assembly.Location,[System.Management.Automation.PSCredential].Assembly.Location)
+   Add-Type -TypeDefinition $script:BaseClassDefinitions -ReferencedAssemblies @([System.Collections.ArrayList].Assembly.Location,[System.Management.Automation.PSCredential].Assembly.Location)
 }
 else
 {
-   Add-Type -TypeDefinition $BaseClassDefinitions
+   Add-Type -TypeDefinition $script:BaseClassDefinitions
 }
 
 #########################################################
