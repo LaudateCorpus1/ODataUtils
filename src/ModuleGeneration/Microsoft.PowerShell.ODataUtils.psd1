@@ -10,7 +10,7 @@
 RootModule = 'Microsoft.PowerShell.ODataUtils.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.1.6.0'
+ModuleVersion = '1.1.7.0'
 
 # ID used to uniquely identify this module
 GUID = 'fa1606d1-94cb-4264-bfb6-def714420084'
